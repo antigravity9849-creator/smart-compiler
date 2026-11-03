@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react';
 import { Code2, TerminalSquare, Bug, Clock, BarChart2, BookOpen } from 'lucide-react';
 import Header from './components/Header.jsx';
 import EditorPanel from './components/EditorPanel.jsx';
@@ -8,9 +8,11 @@ import LanguageDetectorPopup from './components/LanguageDetectorPopup.jsx';
 import BugTrackerPanel from './components/BugTrackerPanel.jsx';
 import CompilationHistoryPanel from './components/CompilationHistoryPanel.jsx';
 import AnalyticsPanel from './components/AnalyticsPanel.jsx';
-import AiTutorPanel from './components/AiTutorPanel.jsx';
-import PythonTutorPanel from './components/PythonTutorPanel.jsx';
-import JavaTutorPanel from './components/JavaTutorPanel.jsx';
+// Tutor panels are loaded lazily — they embed large curriculum datasets (tutorData.js etc.)
+// and are only needed when the user explicitly opens the AI Tutor panel.
+const AiTutorPanel     = lazy(() => import('./components/AiTutorPanel.jsx'));
+const PythonTutorPanel = lazy(() => import('./components/PythonTutorPanel.jsx'));
+const JavaTutorPanel   = lazy(() => import('./components/JavaTutorPanel.jsx'));
 import { TutorErrorBoundary } from './components/TutorErrorBoundary.jsx';
 import AdminDashboard from './components/AdminDashboard.jsx';
 import LeaderboardPanel from './components/LeaderboardPanel.jsx';
@@ -787,7 +789,8 @@ export default function App() {
       )}
 
       {/* AI Tutor Panel — distinct independent panel per language (no merge) */}
-      <TutorErrorBoundary onClose={() => setAiTutorOpen(false)}>
+      <Suspense fallback={null}>
+        <TutorErrorBoundary onClose={() => setAiTutorOpen(false)}>
         {aiTutorOpen && selectedLanguage === 'python' && (
           <PythonTutorPanel
             onClose={() => setAiTutorOpen(false)}
@@ -804,6 +807,7 @@ export default function App() {
           <AiTutorPanel onClose={() => setAiTutorOpen(false)} />
         )}
       </TutorErrorBoundary>
+      </Suspense>
 
       {/* Admin Dashboard — only rendered for admin email, modal overlay */}
       {adminDashboardOpen && (

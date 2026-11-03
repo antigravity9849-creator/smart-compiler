@@ -38,6 +38,26 @@ const PIDS_LIMIT       = '64';     // max processes inside container
 const WANDBOX_URL = 'https://wandbox.org/api/compile.json';
 const WANDBOX_COMPILER = 'gcc-head-c'; // GCC latest stable C compiler
 
+// ── SECURITY: Build a minimal environment for student-code child processes ────
+// Only pass through variables that compilers/runtimes actually need.
+// Secrets (SUPABASE_*, OPENROUTER_*, ADMIN_EMAILS) must NEVER appear in the
+// environment of any child process — a student program could enumerate them
+// via /proc/self/environ or via os.environ in Python.
+function getCleanEnv(extra) {
+  const safe = {};
+  const allowedKeys = [
+    'PATH', 'TERM', 'TMPDIR', 'TEMP', 'TMP',
+    'HOME', 'USER', 'USERNAME',
+    'SystemRoot', 'windir', 'HOMEDRIVE', 'HOMEPATH',
+    'JAVA_HOME', 'LANG', 'LC_ALL',
+  ];
+  for (const k of allowedKeys) {
+    if (process.env[k] !== undefined) safe[k] = process.env[k];
+  }
+  return Object.assign(safe, extra || {});
+}
+
+
 // ── Docker availability probe ────────────────────────────────────────────────
 let _dockerReady = null;  // null = not checked yet, true/false after first check
 
@@ -218,7 +238,7 @@ function runDockerCommand(mountDir, command, stdin, timeoutMs) {
     let signal  = null;
     let timer;
 
-    const proc = spawn('docker', args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    const proc = spawn('docker', args, { stdio: ['pipe', 'pipe', 'pipe'], env: getCleanEnv() });
 
     // Pipe stdin to the container
     if (stdin) {
@@ -374,7 +394,7 @@ async function runWithLocalGcc(code, stdin) {
       const proc = spawn(
         'gcc',
         [srcFile, '-Wall', '-Wextra', '-O2', '-o', outFile, '-lm'],
-        { stdio: ['ignore', 'pipe', 'pipe'] }
+        { stdio: ['ignore', 'pipe', 'pipe'], env: getCleanEnv() }
       );
       proc.stdout.on('data', d => { compileOut += d.toString(); });
       proc.stderr.on('data', d => { compileOut += d.toString(); });
@@ -420,6 +440,7 @@ async function runWithLocalGcc(code, stdin) {
       const proc = spawn(outFile, [], {
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: tmpDir,
+        env: getCleanEnv(),
       });
 
       if (stdin) proc.stdin.write(stdin);
@@ -610,6 +631,7 @@ async function runWithLocalPython(code, stdin) {
       const proc = spawn(_localPythonBin, ['-u', pyFile], {
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: tmpDir,
+        env: getCleanEnv({ PYTHONUNBUFFERED: '1' }),
       });
 
       if (stdin) proc.stdin.write(stdin);

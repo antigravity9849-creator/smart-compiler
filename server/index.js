@@ -74,6 +74,31 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
   .map(e => e.trim().toLowerCase())
   .filter(Boolean);
 
+// ── SECURITY: Scrub secrets from process.env immediately after capture ────────
+// Student code runs as the same OS user (UID 1001 / appuser) as this Node.js
+// process.  On Linux, any process can read /proc/<pid>/environ for processes
+// it owns.  Removing secrets from process.env now means /proc/<pid>/environ
+// of this server process will no longer expose secret values after startup.
+// All secrets are retained in the const variables above, which live only in
+// JS heap memory — not readable via /proc.
+//
+// Keys scrubbed: Supabase service key, OpenRouter API key, admin email list,
+// and any env var name containing common secret indicators.
+// VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are intentionally left — they
+// are already baked into the public frontend bundle so they are not secrets.
+const _SECRET_PREFIXES = [
+  'SUPABASE_SERVICE_KEY', 'SUPABASE_SECRET_KEY', 'SUPABASE_JWT_SECRET',
+  'OPENROUTER_API_KEY',
+  'ADMIN_EMAILS',
+  'DATABASE_URL', 'DB_PASSWORD',
+];
+for (const key of Object.keys(process.env)) {
+  if (_SECRET_PREFIXES.some(s => key.toUpperCase().includes(s))) {
+    delete process.env[key];
+  }
+}
+console.log('[security] process.env secrets scrubbed — /proc/<pid>/environ no longer exposes keys.');
+
 // Allowed origins — requests from other origins are rejected
 const ALLOWED_ORIGINS = [
   'https://smartcompiler.maadiotsolutions.co.in',

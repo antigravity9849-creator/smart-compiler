@@ -822,7 +822,7 @@ function attachWebSocketServer(httpServer) {
           let javacOut = '';
           let javacOk = false;
           await new Promise((res) => {
-            compileProc = spawn(_javacBin, [javaFileName], { cwd: tmpDir, stdio: ['ignore', 'pipe', 'pipe'] });
+            compileProc = spawn(_javacBin, [javaFileName], { cwd: tmpDir, stdio: ['ignore', 'pipe', 'pipe'], env: getCleanEnv() });
             compileProc.stdout.on('data', d => { javacOut += d.toString(); });
             compileProc.stderr.on('data', d => { javacOut += d.toString(); });
             const t = setTimeout(() => { if (compileProc) compileProc.kill(); res(); }, COMPILE_TIMEOUT);
@@ -943,7 +943,7 @@ function attachWebSocketServer(httpServer) {
           compileProc = spawn(
             'gcc',
             [srcPath, '-Wall', '-Wextra', '-O2', '-o', localExePath, '-lm'],
-            { stdio: ['ignore', 'pipe', 'pipe'] }
+            { stdio: ['ignore', 'pipe', 'pipe'], env: getCleanEnv() }
           );
           compileProc.stdout.on('data', d => { localCompileOut += d.toString(); });
           compileProc.stderr.on('data', d => { localCompileOut += d.toString(); });
@@ -1021,7 +1021,7 @@ function attachWebSocketServer(httpServer) {
 
         } else {
           // node-pty not available: plain spawn (no interactive input, but at least runs)
-          plainProc = spawn(localExePath, [], { stdio: ['pipe', 'pipe', 'pipe'], cwd: tmpDir });
+          plainProc = spawn(localExePath, [], { stdio: ['pipe', 'pipe', 'pipe'], cwd: tmpDir, env: getCleanEnv() });
           const normalize = d => d.toString().replace(/\r?\n/g, '\r\n');
           plainProc.stdout.on('data', d => { if (!cleaned) send({ type: 'output', data: normalize(d) }); });
           plainProc.stderr.on('data', d => { if (!cleaned) send({ type: 'output', data: normalize(d) }); });
@@ -1087,7 +1087,7 @@ function attachWebSocketServer(httpServer) {
       let compileTimeout = false;
 
       await new Promise((resolve) => {
-        compileProc = spawn('docker', compileArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+        compileProc = spawn('docker', compileArgs, { stdio: ['ignore', 'pipe', 'pipe'], env: getCleanEnv() });
         compileProc.stdout.on('data', d => { compileOut += d.toString(); });
         compileProc.stderr.on('data', d => { compileOut += d.toString(); });
         const t = setTimeout(() => { if (compileProc) compileProc.kill(); compileTimeout = true; resolve(); }, COMPILE_TIMEOUT);
@@ -1194,7 +1194,7 @@ function attachWebSocketServer(httpServer) {
       } else {
         // ── Plain spawn fallback (no node-pty) ────────────────────────
         // Output is pipe-based; normalize \n → \r\n for xterm.js.
-        plainProc = spawn('docker', runArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
+        plainProc = spawn('docker', runArgs, { stdio: ['pipe', 'pipe', 'pipe'], env: getCleanEnv() });
 
         const normalize = d => d.toString().replace(/\r?\n/g, '\r\n');
 
