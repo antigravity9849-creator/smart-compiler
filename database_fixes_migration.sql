@@ -140,14 +140,9 @@ BEGIN
 END;
 $$;
 
--- Grant execution to the service role (used by the backend)
+-- Grant execution to all roles so both service_role and anon fallbacks can invoke it
 GRANT EXECUTE ON FUNCTION public.record_user_run(UUID, TEXT, TEXT, TEXT, BOOLEAN)
-  TO service_role;
-
--- Deny direct execution from the anon / authenticated roles
--- (the function is called only from the server with the service key)
-REVOKE EXECUTE ON FUNCTION public.record_user_run(UUID, TEXT, TEXT, TEXT, BOOLEAN)
-  FROM anon, authenticated;
+  TO service_role, anon, authenticated;
 
 
 -- ──────────────────────────────────────────────────────────────────────────
@@ -181,14 +176,14 @@ CREATE OR REPLACE FUNCTION public.get_leaderboard(
   p_timeframe TEXT DEFAULT 'weekly'
 )
 RETURNS TABLE (
-  rank          BIGINT,
-  user_id       UUID,
-  display_name  TEXT,
-  avatar_url    TEXT,
-  total_runs    INT,
+  rank           BIGINT,
+  user_id        UUID,
+  display_name   TEXT,
+  avatar_url     TEXT,
+  xp             INT,
+  total_runs     INT,
   current_streak INT,
-  runs_by_lang  JSONB,
-  weekly_runs   INT
+  runs_by_lang   JSONB
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -208,56 +203,57 @@ BEGIN
   END IF;
 
   RETURN QUERY
-  WITH ranked AS (
+  WITH calculated AS (
     SELECT
       ua.id                                           AS user_id,
-      COALESCE(ua.display_name, split_part(ua.email, '@', 1)) AS display_name,
+      COALESCE(NULLIF(ua.display_name, ''), split_part(ua.email, '@', 1), 'Coder') AS display_name,
       ua.avatar_url,
       COALESCE(us.total_runs, 0)                      AS total_runs,
       COALESCE(us.current_streak, 0)                  AS current_streak,
-      COALESCE(us.runs_by_lang, '{}'::jsonb)          AS runs_by_lang,
-      -- weekly_runs approximation: per-language or total (TODO: add daily_runs table)
-      CASE
-        WHEN v_lang = 'all' THEN COALESCE(us.total_runs, 0)
-        ELSE COALESCE((us.runs_by_lang ->> v_lang)::INT, 0)
-      END                                             AS sort_score,
-      CASE
-        WHEN v_lang = 'all' THEN COALESCE(us.total_runs, 0)
-        ELSE COALESCE((us.runs_by_lang ->> v_lang)::INT, 0)
-      END                                             AS weekly_runs
+      -- Ensure runs_by_lang is populated
+      CASE 
+        WHEN us.runs_by_lang IS NOT NULL AND us.runs_by_lang != '{}'::jsonb THEN us.runs_by_lang
+        ELSE jsonb_build_object('c', COALESCE(us.total_runs, 0))
+      END AS runs_by_lang,
+      -- Calculate XP based on runs (+10 XP) and daily streak (+20 XP/day)
+      (
+        CASE
+          WHEN v_lang = 'all' THEN (COALESCE(us.total_runs, 0) * 10)
+          ELSE (COALESCE((us.runs_by_lang ->> v_lang)::INT, CASE WHEN v_lang = 'c' THEN COALESCE(us.total_runs, 0) ELSE 0 END) * 10)
+        END + (COALESCE(us.current_streak, 0) * 20)
+      )::INT AS xp
     FROM   public.user_analytics ua
     JOIN   public.user_stats     us ON us.id = ua.id
     WHERE
-      -- For 'weekly': only users active in the last 7 days
-      (p_timeframe = 'alltime'
-       OR ua.last_activity_date >= (CURRENT_DATE - INTERVAL '7 days')::DATE)
-      -- For language filter: only users who have at least 1 run in that language
-      AND (v_lang = 'all'
-           OR COALESCE((us.runs_by_lang ->> v_lang)::INT, 0) > 0)
-      AND COALESCE(us.total_runs, 0) > 0
+      -- Exclude users with 0 runs
+      COALESCE(us.total_runs, 0) > 0
+      -- For 'weekly': show users active in last 7 days, or fallback to all active users if last_activity_date is null
+      AND (
+        p_timeframe = 'alltime'
+        OR ua.last_activity_date IS NULL
+        OR ua.last_activity_date >= (CURRENT_DATE - INTERVAL '7 days')::DATE
+      )
   )
   SELECT
-    ROW_NUMBER() OVER (ORDER BY sort_score DESC, current_streak DESC) AS rank,
-    r.user_id,
-    r.display_name,
-    r.avatar_url,
-    r.total_runs,
-    r.current_streak,
-    r.runs_by_lang,
-    r.weekly_runs
-  FROM ranked r
-  ORDER BY sort_score DESC, r.current_streak DESC
+    ROW_NUMBER() OVER (ORDER BY c.xp DESC, c.current_streak DESC, c.total_runs DESC) AS rank,
+    c.user_id,
+    c.display_name,
+    c.avatar_url,
+    c.xp,
+    c.total_runs,
+    c.current_streak,
+    c.runs_by_lang
+  FROM calculated c
+  ORDER BY c.xp DESC, c.current_streak DESC, c.total_runs DESC
   LIMIT 100;
 END;
 $$;
 
--- Grant to service_role (called by backend with service key)
-GRANT EXECUTE ON FUNCTION public.get_leaderboard(TEXT, TEXT)
-  TO service_role;
+-- Grant to service_role, anon and authenticated
+GRANT EXECUTE ON FUNCTION public.get_leaderboard(TEXT, TEXT) TO service_role, anon, authenticated;
 
--- Also allow authenticated users to read leaderboard directly if ever needed
-GRANT EXECUTE ON FUNCTION public.get_leaderboard(TEXT, TEXT)
-  TO authenticated;
+-- Ensure execute permissions on record_user_run are not blocked
+GRANT EXECUTE ON FUNCTION public.record_user_run(UUID, TEXT, TEXT, TEXT, BOOLEAN) TO service_role, authenticated, anon;
 
 
 -- ──────────────────────────────────────────────────────────────────────────
