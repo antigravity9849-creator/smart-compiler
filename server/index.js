@@ -74,6 +74,8 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
   .map(e => e.trim().toLowerCase())
   .filter(Boolean);
 
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
+
 // ── SECURITY: Scrub secrets from process.env immediately after capture ────────
 // Student code runs as the same OS user (UID 1001 / appuser) as this Node.js
 // process.  On Linux, any process can read /proc/<pid>/environ for processes
@@ -415,7 +417,7 @@ app.post('/api/ai', aiLimiter, async (req, res) => {
   // IMPORTANT: only use server-side keys (no VITE_ prefix — those would bake into the bundle).
   const PLACEHOLDER_FRAGMENTS = ['your_', 'REPLACE_WITH'];
   const allKeys = [
-    process.env.OPENROUTER_API_KEY,
+    OPENROUTER_API_KEY,
   ].filter((k) => k && k.trim() && !PLACEHOLDER_FRAGMENTS.some(p => k.includes(p)));
 
   if (allKeys.length === 0) {
