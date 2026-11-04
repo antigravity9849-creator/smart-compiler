@@ -1,5 +1,6 @@
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import { highlightCode } from '../highlight.js';
+import DOMPurify from 'dompurify';
 import { getAcceptString } from '../fileUploader.js';
 import styles from './EditorPanel.module.css';
 
@@ -598,7 +599,7 @@ export default function EditorPanel({
             ref={preRef}
             className={styles.highlight}
             aria-hidden="true"
-            dangerouslySetInnerHTML={{ __html: highlighted + '\n' }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(highlighted + '\n') }}
           />
           <textarea
             ref={textareaRef}

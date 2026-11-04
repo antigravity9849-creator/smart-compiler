@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 /**
  * server/index.js — Express + WebSocket API for smart-compiler
  *
@@ -691,7 +691,7 @@ app.patch('/api/admin/set-token-limit', adminLimiter, async (req, res) => {
       return res.status(502).json({ error: 'Database error' });
     }
 
-    console.log(`[Admin] ${supabaseUser.email} set token_limit=${newLimit} for userId=${userId}`);
+    console.log(`[Admin] Admin updated quota limit for userId=${userId}`);
     return res.json({ success: true, userId, tokenLimit: newLimit });
   } catch (err) {
     console.error('[/api/admin/set-token-limit] Error:', err.message);

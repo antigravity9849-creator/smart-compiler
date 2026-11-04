@@ -6,6 +6,7 @@ import { callClaude, parseJSON, compileJava } from '../api';
 import { TUTOR_LOGIC_SYSTEM_PROMPT, TUTOR_CODE_SYSTEM_PROMPT, TUTOR_AI_SOLUTION_PROMPT } from '../constants';
 import { analyticsStore } from '../analytics';
 import { highlightJava } from '../highlight';
+import DOMPurify from 'dompurify';
 
 // ─── SpeakerBtn ──────────────────────────────────────────────────────────────
 // Small inline speaker button with wave animation when active.
@@ -2170,7 +2171,7 @@ function TutorCodeEditor({ code, onChange }) {
           ref={preRef}
           className={styles.tutorHighlight}
           aria-hidden="true"
-          dangerouslySetInnerHTML={{ __html: highlighted + '\n' }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(highlighted + '\n') }}
         />
         <textarea
           ref={textareaRef}

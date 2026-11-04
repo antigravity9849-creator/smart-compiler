@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { compilationHistoryStore, MAX_ENTRIES } from '../compilationHistory.js';
 import { LANGUAGE_META } from '../constants.js';
 import { highlightCode } from '../highlight.js';
+import DOMPurify from 'dompurify';
 import styles from './CompilationHistoryPanel.module.css';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -511,7 +512,7 @@ function HistoryCard({ entry, onLoadInEditor, onDelete }) {
                     <td className={styles.codeLineNum}>{i + 1}</td>
                     <td
                       className={styles.codeLineContent}
-                      dangerouslySetInnerHTML={{ __html: highlightCode(line, entry.language) || '\u00a0' }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(highlightCode(line, entry.language) || '\u00a0') }}
                     />
                   </tr>
                 ))}
