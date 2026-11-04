@@ -1,3 +1,10 @@
+﻿/* ── XSS safety note ──────────────────────────────────────────────────────────
+   All innerHTML assignments in this file use ONLY hardcoded static HTML literals
+   produced at build-time. No user-supplied input is interpolated here.
+   The heroGutter builder uses createElement/textContent exclusively.
+   Reviewed 2026-11 (Render security audit). Do not add user data to these paths.
+ ──────────────────────────────────────────────────────────────────────────────── */
+
 /* ── Nav scroll state ── */
 const nav = document.getElementById('nav');
 if (nav) {
@@ -263,7 +270,7 @@ let displayedLines = [];
 let currentLine = 0;
 
 function buildGutter() {
-  heroGutter.innerHTML = '';
+  heroGutter.replaceChildren(); // safe: clears child nodes without parsing HTML
   const totalLines = Math.max(displayedLines.length, 1);
   for (let i = 1; i <= totalLines; i++) {
     const s = document.createElement('span');

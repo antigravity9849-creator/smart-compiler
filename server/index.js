@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 /**
  * server/index.js — Express + WebSocket API for smart-compiler
  *
@@ -99,7 +99,7 @@ for (const key of Object.keys(process.env)) {
     delete process.env[key];
   }
 }
-console.log('[security] process.env secrets scrubbed — /proc/<pid>/environ no longer exposes keys.');
+// Secrets scrubbed from process.env — child processes will not inherit them.
 
 // Allowed origins — requests from other origins are rejected
 const ALLOWED_ORIGINS = [
@@ -613,7 +613,7 @@ app.get('/api/admin/analytics', adminLimiter, async (req, res) => {
     if (!apiRes.ok) {
       const errText = await apiRes.text();
       console.error('[/api/admin/analytics] Supabase error:', errText);
-      return res.status(502).json({ error: 'DB fetch failed', detail: errText });
+      return res.status(502).json({ error: 'Database error' });
     }
 
     const rawRows = await apiRes.json();
@@ -633,7 +633,7 @@ app.get('/api/admin/analytics', adminLimiter, async (req, res) => {
     return res.json({ rows });
   } catch (err) {
     console.error('[/api/admin/analytics] Error:', err.message);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -688,14 +688,14 @@ app.patch('/api/admin/set-token-limit', adminLimiter, async (req, res) => {
     if (!updateRes.ok) {
       const errText = await updateRes.text();
       console.error('[/api/admin/set-token-limit] Supabase error:', errText);
-      return res.status(502).json({ error: 'DB update failed', detail: errText });
+      return res.status(502).json({ error: 'Database error' });
     }
 
     console.log(`[Admin] ${supabaseUser.email} set token_limit=${newLimit} for userId=${userId}`);
     return res.json({ success: true, userId, tokenLimit: newLimit });
   } catch (err) {
     console.error('[/api/admin/set-token-limit] Error:', err.message);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -805,7 +805,7 @@ app.get('/api/leaderboard', async (req, res) => {
         detail = parsed.message || parsed.hint || parsed.details || errText;
       } catch (_) { /* leave as raw text */ }
       console.error('[/api/leaderboard] Supabase error:', errText);
-      return res.status(502).json({ error: 'Failed to fetch leaderboard', detail });
+      return res.status(502).json({ error: 'Failed to fetch leaderboard' });
     }
 
     const data = await response.json();
@@ -813,7 +813,7 @@ app.get('/api/leaderboard', async (req, res) => {
     return res.json({ data, cached: false });
   } catch (err) {
     console.error('[/api/leaderboard] Unexpected error:', err.message);
-    return res.status(500).json({ error: 'Internal server error', detail: err.message });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -868,7 +868,7 @@ app.post('/api/compile', compileLimiter, async (req, res) => {
     return res.json(result);
   } catch (err) {
     console.error('[/api/compile] Unexpected error:', err);
-    return res.status(500).json({ error: 'Internal server error', message: err.message });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
